@@ -11,7 +11,7 @@ A Node.js application that processes IP camera feeds using TensorFlow.js object 
 
 ## Requirements
 
-- Node.js v16 or higher
+- Node.js v22 or higher
 - NPM or Yarn
 
 ## Installation

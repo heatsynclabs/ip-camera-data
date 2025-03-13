@@ -3,6 +3,13 @@ import config from './config.js'
 import { Worker } from 'worker_threads';
 const app = express();
 
+// Enable CORS
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
+
 app.listen(config.port, () => {
   console.log(`Server is running on port ${config.port}`);
 });
