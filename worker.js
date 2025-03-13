@@ -1,5 +1,6 @@
 import tf from '@tensorflow/tfjs-node';
 import cocoSsd from '@tensorflow-models/coco-ssd';
+import * as poseDetection from '@tensorflow-models/pose-detection';
 import { parentPort } from 'worker_threads';
 import config from './config.js';
 let baseImageUrl = '';
@@ -24,6 +25,7 @@ async function detectPeopleFromURL() {
   
   try{
     const timestamp = Date.now();
+    let start = timestamp;
     const imageUrl = `${baseImageUrl}&date=${timestamp}`;
     // Fetch the image from the URL
     const response = await fetch(imageUrl);
@@ -33,31 +35,19 @@ async function detectPeopleFromURL() {
     
     // Decode image into tensor using @tensorflow/tfjs-node
     const tensor = tf.node.decodeImage(imageBuffer);
+    const fetchDecodeTime = Date.now() - start;
 
-    // console.log('tensor', tensor, imageUrl);
-    
-  
-    // const poses = await detector.estimatePoses(tensor);
-    // console.log('poses', poses, imageUrl);
     // Run object detection
+    start = Date.now();
     const predictions = await model.detect(tensor);
-  
-    // console.log('predictions', predictions, imageUrl);
-  
-    // Filter only "person" detections
-    // const people = predictions.filter(p => {
-    //   // console.log('p', p);
-    //   return p.class === 'person';
-    // });
-  
-    // if (people.length > 0) {
-    //   console.log(people.map(p => ({
-    //     bbox: p.bbox, // [x, y, width, height]
-    //     score: p.score,
-    //     class: p.class
-    //   })), imageUrl);
-    // }
-  
+    const predictTime = Date.now() - start;
+    
+    // Use the original tensor for pose detection
+    start = Date.now();
+    const poses = await poseDetector.estimatePoses(tensor);
+    const poseTime = Date.now() - start;
+    
+    // Get image dimensions
     const [height, width, channels] = tensor.shape;
     const results = {
       image: {
@@ -65,8 +55,12 @@ async function detectPeopleFromURL() {
         width: width,
         channels: channels
       },
-      predictions: predictions,
-      timestamp: timestamp,
+      predictions,
+      poses,
+      timestamp,
+      fetchDecodeTime,
+      predictTime,
+      poseTime,
     }
     tensor.dispose(); // Free up memory
     parentPort.postMessage(JSON.stringify({topic: 'results', payload: results}));
@@ -79,9 +73,22 @@ async function detectPeopleFromURL() {
 
 
 let model;
+let poseDetector;
 async function main() {
-  console.log('Loading model...');
-  model = await cocoSsd.load();
+  console.log('Loading models...');
+  model = await cocoSsd.load({base: 'mobilenet_v2'});
+  // model = await cocoSsd.load();
+  
+  // Configure MoveNet Thunder to maximize accuracy at the expense of performance
+  const moveNetModel = poseDetection.SupportedModels.MoveNet;
+  poseDetector = await poseDetection.createDetector(moveNetModel, {
+    modelType: 'SinglePose.Thunder',  // The most accurate MoveNet model
+    enableSmoothing: true,
+    scoreThreshold: 0.05,             // Extremely low threshold to maximize recall
+    minPoseScore: 0.05                // Detect even low-confidence poses
+  });
+  
+  console.log('All models loaded');
   parentPort.postMessage(JSON.stringify({topic: 'event', payload: 'ready'}));
 }
 
