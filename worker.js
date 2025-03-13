@@ -76,11 +76,10 @@ let model;
 let poseDetector;
 async function main() {
   console.log('Loading models...');
-  model = await cocoSsd.load({base: 'mobilenet_v2'});
-  // model = await cocoSsd.load();
+  model = await cocoSsd.load();
   
-
   // too much ram for heroku ----------------------
+  // model = await cocoSsd.load({base: 'mobilenet_v2'});
   // Configure MoveNet Thunder to maximize accuracy at the expense of performance
   // const moveNetModel = poseDetection.SupportedModels.MoveNet;
   // poseDetector = await poseDetection.createDetector(moveNetModel, {
